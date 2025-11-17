@@ -1,0 +1,18 @@
+app = "crypto-trend-app"
+
+
+[build]
+image = "nginx:alpine"
+
+
+[[services]]
+internal_port = 80
+protocol = "tcp"
+
+
+[[services.ports]]
+port = 80
+
+
+[[services.ports]]
+port = 443
