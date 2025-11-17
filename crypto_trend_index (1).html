@@ -1,0 +1,70 @@
+# Структура проекта для Fly.io
+
+crypto-trend-fly/
+├─ index.html          # твой текущий HTML (тот, который я сделал ранее)
+├─ Dockerfile
+├─ fly.toml
+
+---
+
+## Dockerfile
+
+```dockerfile
+FROM nginx:alpine
+COPY index.html /usr/share/nginx/html/index.html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+---
+
+## fly.toml
+
+```toml
+app = "crypto-trend-app"
+
+[build]
+  image = "nginx:alpine"
+
+[[services]]
+  internal_port = 80
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+
+  [[services.ports]]
+    port = 443
+```
+
+---
+
+## Инструкция по деплою на Fly.io
+
+1. Установи Fly CLI:
+   ```bash
+   curl -L https://fly.io/install.sh | sh
+   ```
+
+2. Авторизация:
+   ```bash
+   fly auth login
+   ```
+
+3. Инициализация проекта:
+   ```bash
+   cd путь_к_папке/crypto-trend-fly
+   fly launch
+   ```
+   - Скажи **No** на вопрос о базе данных.
+
+4. Деплой:
+   ```bash
+   fly deploy
+   ```
+
+5. Ссылка на сайт будет примерно такая:
+   ```
+   https://crypto-trend-app.fly.dev
+   ```
+   Там твой сайт с графиком будет доступен онлайн.
