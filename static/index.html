@@ -1,63 +1,65 @@
-<!doctype html>
-<html lang="ru">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Crypto Trend — Dark</title>
-<link rel="stylesheet" href="/static/style.css">
-<script src="https://unpkg.com/lightweight-charts@3.9.0/dist/lightweight-charts.standalone.production.js"></script>
+    <meta charset="UTF-8">
+    <title>Crypto Trend</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
-<div class="app">
-<header>
-<h1>Crypto Trend</h1>
-<div class="controls">
-<select id="coin">
-<option value="bitcoin">Bitcoin</option>
-<option value="ethereum">Ethereum</option>
-<option value="solana">Solana</option>
-<option value="ripple">Ripple</option>
-<option value="chainlink">Chainlink</option>
-</select>
-<select id="tf">
-<option value="1m">1m</option>
-<option value="5m">5m</option>
-<option value="1h">1h</option>
-<option value="4h">4h</option>
-<option value="1d">1d</option>
-<option value="30d">30d</option>
-</select>
-<button id="load">Load</button>
-</div>
-</header>
-<main>
-<div class="left">
-<div id="chart"></div>
-<div class="indicators">
-<div>Тренд: <span id="trend">—</span></div>
-<div>RSI(14): <span id="rsi">—</span></div>
-</div>
-</div>
-<aside class="right">
-<h3>Прогноз</h3>
-<pre id="forecast">—</pre>
-</aside>
-</main>
-</div>
 
+<div class="container">
+    <h1>Crypto Trend Analyzer</h1>
+
+    <div class="controls">
+        <select id="symbol">
+            <option value="BTCUSDT">BTC/USDT</option>
+            <option value="ETHUSDT">ETH/USDT</option>
+        </select>
+
+        <select id="interval">
+            <option value="1m">1m</option>
+            <option value="5m">5m</option>
+            <option value="1h">1h</option>
+            <option value="4h">4h</option>
+        </select>
+
+        <button onclick="loadData()">Обновить</button>
+    </div>
+
+    <div id="chart"></div>
+
+    <div id="forecast"></div>
+</div>
 
 <script>
-const coinSel = document.getElementById('coin');
-const tfSel = document.getElementById('tf');
-const loadBtn = document.getElementById('load');
-const trendEl = document.getElementById('trend');
-const rsiEl = document.getElementById('rsi');
-const forecastEl = document.getElementById('forecast');
+let chart;
+let candleSeries;
 
+async function loadData() {
+    const symbol = document.getElementById("symbol").value;
+    const interval = document.getElementById("interval").value;
 
-let chart, candleSeries, ema20Series, ema50Series;
-function createChart(){
-const container = document.getElementById('chart');
-container.style.height = '420px';
-container.innerHTML='';
-async function load(
+    const res = await fetch(`/api/klines?symbol=${symbol}&interval=${interval}&limit=200`);
+    const data = await res.json();
+
+    candleSeries.setData(data);
+}
+
+function init() {
+    chart = LightweightCharts.createChart(document.getElementById("chart"), {
+        width: 900,
+        height: 450,
+        layout: { background: { color: "#111" }, textColor: "#DDD" },
+        grid: { vertLines: { color: "#333" }, horzLines: { color: "#333" } }
+    });
+
+    candleSeries = chart.addCandlestickSeries();
+
+    loadData();
+}
+init();
+
+</script>
+</body>
+</html>
