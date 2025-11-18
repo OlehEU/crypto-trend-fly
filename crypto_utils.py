@@ -1,69 +1,83 @@
 import httpx
-return []
-k = 2 / (period + 1)
-ema = []
-prev = prices[0]
-ema.append(prev)
-for p in prices[1:]:
-prev = p * k + prev * (1 - k)
-ema.append(prev)
-return ema
+import numpy as np
 
 
-# RSI
-def calc_rsi(prices, period=14):
-if len(prices) < period + 1:
-return [None] * len(prices)
-deltas = [prices[i] - prices[i - 1] for i in range(1, len(prices))]
-gains = [max(d, 0) for d in deltas]
-losses = [abs(min(d, 0)) for d in deltas]
+async def fetch_binance_klines(symbol="BTCUSDT", interval="1m", limit=200):
+    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    async with httpx.AsyncClient() as client:
+        r = await client.get(url)
+        raw = r.json()
+
+    candles = []
+    for c in raw:
+        candles.append({
+            "time": c[0] // 1000,
+            "open": float(c[1]),
+            "high": float(c[2]),
+            "low": float(c[3]),
+            "close": float(c[4]),
+            "volume": float(c[5]),
+        })
+    return candles
 
 
-avg_gain = sum(gains[:period]) / period
-avg_loss = sum(losses[:period]) / period
-rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
-rsi = [None] * (period)
-rsi.append(100 - (100 / (1 + rs)))
+async def fetch_market_chart(coin="bitcoin", days=1):
+    url = f"https://api.coingecko.com/api/v3/coins/{coin}/market_chart?vs_currency=usd&days={days}"
+    async with httpx.AsyncClient() as client:
+        r = await client.get(url)
+        return r.json()
 
 
-for i in range(period, len(gains)):
-avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-rs = avg_gain / avg_loss if avg_loss != 0 else float('inf')
-rsi.append(100 - (100 / (1 + rs)))
+def ema(values, period):
+    arr = np.array(values, dtype=float)
+    return list(np.round(pd.Series(arr).ewm(span=period).mean(), 2))
 
 
-return [None] + rsi
+def rsi(values, length=14):
+    values = np.array(values, dtype=float)
+    diff = np.diff(values)
+    up = diff.clip(min=0)
+    down = (-diff.clip(max=0))
+
+    roll_up = np.mean(up[:length])
+    roll_down = np.mean(down[:length])
+
+    rsi_values = []
+    for i in range(length, len(values) - 1):
+        roll_up = (roll_up * (length - 1) + up[i]) / length
+        roll_down = (roll_down * (length - 1) + down[i]) / length
+
+        rs = roll_up / roll_down if roll_down != 0 else 0
+        rsi_values.append(100 - (100 / (1 + rs)))
+
+    return rsi_values
 
 
-# MACD
-def calc_macd(prices, fast=12, slow=26, signal=9):
-ema_fast = calc_ema(prices, fast)
-ema_slow = calc_ema(prices, slow)
-macd = []
-for a, b in zip(ema_fast, ema_slow):
-macd.append(a - b)
-signal_line = calc_ema(macd, signal) if macd else []
-return macd, signal_line
+def macd(values):
+    arr = np.array(values, float)
+    ema12 = pd.Series(arr).ewm(span=12).mean()
+    ema26 = pd.Series(arr).ewm(span=26).mean()
+    macd_line = ema12 - ema26
+    signal = macd_line.ewm(span=9).mean()
+    hist = macd_line - signal
+
+    return {
+        "macd": list(macd_line),
+        "signal": list(signal),
+        "hist": list(hist)
+    }
 
 
-# Simple linear forecast
-def simple_forecast(prices, lookback=20, horizon=6):
-if len(prices) < lookback:
-return []
-x = list(range(lookback))
-y = prices[-lookback:]
-n = lookback
-sum_x = sum(x)
-sum_y = sum(y)
-sum_xx = sum([xi * xi for xi in x])
-sum_xy = sum([xi * yi for xi, yi in zip(x, y)])
-denom = n * sum_xx - sum_x * sum_x
-if denom == 0:
-return []
-a = (n * sum_xy - sum_x * sum_y) / denom
-b = (sum_y - a * sum_x) / n
-preds = []
-for t in range(lookback, lookback + horizon):
-preds.append(a * t + b)
-return preds
+def calculate_indicators(closes):
+    return {
+        "ema20": ema(closes, 20),
+        "ema50": ema(closes, 50),
+        "rsi": rsi(closes),
+        "macd": macd(closes)
+    }
+
+
+def simple_forecast(closes):
+    arr = np.array(closes)
+    slope = (arr[-1] - arr[-20]) / 20
+    return float(arr[-1] + slope * 10)
