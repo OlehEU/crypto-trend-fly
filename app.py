@@ -1,56 +1,51 @@
-from fastapi import FastAPI, HTTPException
+# app.py
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
-import time
+import asyncio
 
 app = FastAPI()
 
+# Разрешаем CORS для фронтенда
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Можно указать конкретный домен
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Монтируем папку static на корень
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
-BINANCE_API = "https://api.binance.com/api/v3/klines"
+BINANCE_API_BASE = "https://api.binance.com/api/v3/klines"
 
-
-async def fetch_binance_klines(symbol: str, interval: str, limit: int):
-    url = f"{BINANCE_API}?symbol={symbol}&interval={interval}&limit={limit}"
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; FlyIO/1.0)",
-        "Accept": "application/json",
-    }
-
-    async with httpx.AsyncClient(headers=headers, timeout=10) as client:
-        r = await client.get(url)
-
-        if r.status_code != 200:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Binance error: {r.text}"
-            )
-
-        raw = r.json()
-
-        candles = []
-        for c in raw:
-            candles.append({
-                "time": int(c[0] / 1000),
+async def fetch_binance_klines(symbol: str, interval: str, limit: int = 100):
+    params = {"symbol": symbol.upper(), "interval": interval, "limit": limit}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(BINANCE_API_BASE, params=params)
+        response.raise_for_status()
+        raw_data = response.json()
+        # Преобразуем данные в читаемый формат
+        klines = [
+            {
+                "time": int(c[0]) // 1000,  # Время в секундах
                 "open": float(c[1]),
                 "high": float(c[2]),
                 "low": float(c[3]),
                 "close": float(c[4]),
-            })
+                "volume": float(c[5])
+            }
+            for c in raw_data
+        ]
+        return klines
 
-        return candles
-
-
+# API для фронтенда
 @app.get("/api/klines")
-async def get_klines(symbol: str = "BTCUSDT", interval: str = "1m", limit: int = 50):
+async def get_klines(symbol: str, interval: str, limit: int = 100):
     try:
-        return await fetch_binance_klines(symbol, interval, limit)
+        data = await fetch_binance_klines(symbol, interval, limit)
+        return data
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
