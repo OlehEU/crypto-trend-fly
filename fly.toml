@@ -1,24 +1,22 @@
-# fly.toml — конфиг для приложения Fly
 app = "crypto-trend-fly"
+primary_region = "fra"
 
-# Указываем, что билдим из локального Dockerfile
 [build]
-  image = "Dockerfile"
+  dockerfile = "Dockerfile"
 
-# Настройки сети
-[[services]]
-  internal_port = 80
-  protocol = "tcp"
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
 
-  [[services.ports]]
-    port = 80
-    handlers = ["http"]
-
-  [[services.ports]]
-    port = 443
-    handlers = ["tls", "http"]
-
-  [[services.tcp_checks]]
-    interval = 10000
-    timeout = 2000
-    restart_limit = 0
+[checks]
+  [checks.http]
+    type = "http"
+    port = 8080
+    interval = "10s"
+    timeout = "2s"
+    method = "get"
+    path = "/"
