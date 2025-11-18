@@ -1,0 +1,19 @@
+body {
+    background: #0d0d0d;
+    color: #fff;
+    font-family: Arial;
+    text-align: center;
+}
+
+.container {
+    width: 900px;
+    margin: auto;
+}
+
+.controls {
+    margin: 20px;
+}
+
+#chart {
+    margin-top: 20px;
+}
