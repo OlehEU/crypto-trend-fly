@@ -1,51 +1,37 @@
-# app.py
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import httpx
-import asyncio
 
-app = FastAPI()
+app = FastAPI(title="Crypto Trend Web")
 
-# Разрешаем CORS для фронтенда
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Можно указать конкретный домен
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Монтируем папку static на корень
+# Статика
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
-BINANCE_API_BASE = "https://api.binance.com/api/v3/klines"
-
-async def fetch_binance_klines(symbol: str, interval: str, limit: int = 100):
-    params = {"symbol": symbol.upper(), "interval": interval, "limit": limit}
+# API route для получения данных по монете
+@app.get("/api/coin/{coin_id}")
+async def get_coin_data(coin_id: str, days: int = 1):
+    url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
+    params = {"vs_currency": "usd", "days": days}
     async with httpx.AsyncClient() as client:
-        response = await client.get(BINANCE_API_BASE, params=params)
-        response.raise_for_status()
-        raw_data = response.json()
-        # Преобразуем данные в читаемый формат
-        klines = [
-            {
-                "time": int(c[0]) // 1000,  # Время в секундах
-                "open": float(c[1]),
-                "high": float(c[2]),
-                "low": float(c[3]),
-                "close": float(c[4]),
-                "volume": float(c[5])
-            }
-            for c in raw_data
-        ]
-        return klines
+        try:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            return JSONResponse(content=data)
+        except httpx.HTTPStatusError:
+            return JSONResponse(content={"error": "Не удалось получить данные"}, status_code=400)
 
-# API для фронтенда
-@app.get("/api/klines")
-async def get_klines(symbol: str, interval: str, limit: int = 100):
-    try:
-        data = await fetch_binance_klines(symbol, interval, limit)
-        return data
-    except Exception as e:
-        return {"error": str(e)}
+# API для поиска монеты по названию/ID
+@app.get("/api/search")
+async def search_coin(query: str):
+    url = f"https://api.coingecko.com/api/v3/search"
+    params = {"query": query}
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            return JSONResponse(content=data)
+        except httpx.HTTPStatusError:
+            return JSONResponse(content={"error": "Не удалось выполнить поиск"}, status_code=400)
